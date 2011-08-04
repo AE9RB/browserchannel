@@ -81,26 +81,25 @@ class BrowserChannel
     ID_CHARACTERS = (('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a).freeze
   
     def self.new options, id, array_id
+      if id
+        session = @@sessions[id]
+        if session and array_id and !array_id.empty?
+          array_id = array_id.to_i
+          messages = session.messages
+          messages.shift until messages.empty? or messages.first[0] > array_id
+        end
+        return session 
+      end
       if (@@sessions_gc_counter += 1) > options[:gc_frequency]
         to_destroy = []
         @@sessions.each do |key, object|
-          to_destroy << key if !object.channel and Time.now - object.timestamp > options[:gc_max_age]
+          next if object.channel or Time.now - object.timestamp < options[:gc_max_age]
+          to_destroy << key 
         end
         to_destroy.each do |session|
           @@sessions[session].destroy
         end
         @@sessions_gc_counter = 0
-      end
-      if id
-        session = @@sessions[id]
-        if session and array_id and !array_id.empty?
-          array_id = array_id.to_i
-          session.messages.delete_if do |message_array_id, *data|
-            break if message_array_id > array_id
-            true
-          end
-        end
-        return session 
       end
       while !id or @@sessions.has_key? id
         id = (0..32).map{ID_CHARACTERS[rand(ID_CHARACTERS.size)]}.join 

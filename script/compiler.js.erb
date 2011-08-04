@@ -1,0 +1,28 @@
+<% 
+# These are the same options as compiler.jar.  Two exceptions:
+# 1. No --compilation_level will load the original sources 
+#    instead of using the compiler.jar default.
+# 2. The --ns argument compiles a namespace.  Closure Script simply
+#    turns these into --js arguments before calling the compiler.
+args = %w{
+  --summary_detail_level 3
+  --ns myapp.demo
+}
+
+args += case query_string
+when 'build' then %w{
+  --compilation_level ADVANCED_OPTIMIZATIONS
+  --js_output_file compiler_build.js
+  --create_source_map compiler_build.map
+}
+when 'debug' then %w{
+  --debug true
+  --formatting PRETTY_PRINT
+  --compilation_level ADVANCED_OPTIMIZATIONS
+  --js_output_file compiler_debug.js
+}
+else;[];end
+
+# Compile the javascript.
+@response = goog.compile(args).to_response
+%>

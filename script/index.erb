@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css" media="screen">
+      body{font:13px/1.231 arial,helvetica,clean,sans-serif;*font-size:small;*font:x-small;}
+      select,input,button,textarea,button{font:99% arial,helvetica,clean,sans-serif;}
+    </style>
+  </head>
+  <body>
+
+    <h1>BrowserChannel Ruby Server</h1>
+    
+    <%= render 'svn', :svn_name => 'Closure Library', :svn_path => 'closure-library',
+        :svn_url => 'http://closure-library.googlecode.com/svn/trunk/' %>
+
+    <p>
+      Upgrade Subversion if you get: (502 Bad Gateway) in response to OPTIONS<br />
+      You may manually install into closure-library if the above tool doesn't work.<br />
+      Nothing will work until Closure Library is downloaded.
+    </p>
+    
+    <% unless EventMachine.reactor_running? -%>
+      <p>
+        <span style="color:red">ERROR:</span>  Incompatible server.  Use `thin start`.
+      </p>
+    <% end -%>
+
+    <ul>
+      <li>
+        <a href='closure-library/all_tests'>Closure Library Tests</a>
+      </li>
+      <li>
+        <a href='closure-library/closure/goog/demos/index'>Closure Library Demos</a>
+      </li>
+      <li>
+        <a href='demo'>Raw</a>
+      </li>
+      <li>
+        <a href='demo?build'>Build</a>
+      </li>
+      <li>
+        <a href='demo?debug'>Debug</a>
+      </li>
+    </ul>
+    
+  </body>
+</html>

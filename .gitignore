@@ -1,0 +1,3 @@
+.DS_Store
+closure-library/*
+script/compiler_*

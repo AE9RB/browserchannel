@@ -47,7 +47,7 @@ class BrowserChannel
     def initialize session
       @session = session
     end
-    def unbind
+    def destroy
     end
     def call post_data
       requests = decode_post_data post_data
@@ -82,8 +82,12 @@ class BrowserChannel
   
     def self.new options, id, array_id
       if (@@sessions_gc_counter += 1) > options[:gc_frequency]
-        @@sessions.delete_if do |key, object|
-          !object.channel and Time.now - object.timestamp > options[:gc_max_age]
+        to_destroy = []
+        @@sessions.each do |key, object|
+          to_destroy << key if !object.channel and Time.now - object.timestamp > options[:gc_max_age]
+        end
+        to_destroy.each do |session|
+          @@sessions[session].destroy
         end
         @@sessions_gc_counter = 0
       end
@@ -131,7 +135,7 @@ class BrowserChannel
     end
     
     def destroy
-      @handler.unbind if @handler.respond_to? :unbind
+      @handler.destroy if @handler.respond_to? :destroy
       @@sessions.delete @id
     end
     

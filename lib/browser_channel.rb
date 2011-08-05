@@ -20,19 +20,19 @@ class BrowserChannel
   class Server
     def initialize options={}
       @options = {
-        # subclass this echo Handler or create your own
+        # Subclass this echo Handler or create your own.
         :handler => Handler,
-        # ensure a chunk is sent within these first few seconds because
-        # waiting an entire interval looks too much like a broken server
+        # Ensure a chunk is sent within these first few seconds because
+        # waiting an entire interval looks too much like a broken server.
         :keep_alive_first => 10,
-        # every so often, send a noop chunk so we don't look dead
+        # Send a noop chunk every so many seconds to prevent timeouts.
         :keep_alive_interval => 30,
-        # alternate host prefix for clients with connection pool limits
+        # Alternate host prefix for clients with connection pool limits.
         :host_prefix => nil,
-        # number of seconds a session must be unbound before freed
+        # Number of seconds a session must be unbound before freed.
         :gc_max_age => 120,
-        # session garbage collection is run every x connects
-        :gc_frequency => 100,
+        # Minimum number of seconds to wait between garbage collections.
+        :gc_frequency => 10,
       }.merge! options
     end
     def call env
@@ -76,21 +76,12 @@ class BrowserChannel
   class Session
 
     @@sessions ||= {}
-    @@sessions_gc_counter ||= 0
+    @@sessions_gc ||= Time.now
 
     ID_CHARACTERS = (('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a).freeze
   
     def self.new options, id, array_id
-      if id
-        session = @@sessions[id]
-        if session and array_id and !array_id.empty?
-          array_id = array_id.to_i
-          messages = session.messages
-          messages.shift until messages.empty? or messages.first[0] > array_id
-        end
-        return session 
-      end
-      if (@@sessions_gc_counter += 1) > options[:gc_frequency]
+      if (Time.now - @@sessions_gc) > options[:gc_frequency]
         to_destroy = []
         @@sessions.each do |key, object|
           next if object.channel or Time.now - object.timestamp < options[:gc_max_age]
@@ -99,7 +90,16 @@ class BrowserChannel
         to_destroy.each do |session|
           @@sessions[session].destroy
         end
-        @@sessions_gc_counter = 0
+        @@sessions_gc = Time.now
+      end
+      if id
+        session = @@sessions[id]
+        if session and array_id and !array_id.empty?
+          array_id = array_id.to_i
+          messages = session.messages
+          messages.shift until messages.empty? or messages.first[0] > array_id
+        end
+        return session 
       end
       while !id or @@sessions.has_key? id
         id = (0..32).map{ID_CHARACTERS[rand(ID_CHARACTERS.size)]}.join 

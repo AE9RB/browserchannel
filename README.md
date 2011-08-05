@@ -38,10 +38,22 @@ then connects with a server.  The handler is your implementation.
     channel.setHandler(handler);
     channel.connect('demo.test', 'demo.channel');
 
-The server is a Rack application that requires the `thin` server.  This enables
-use of the epoll/kqueue interface.  Tens of thousands of connections can be maintained
-with as much as 1000 requests per second on good hardware.  Of course, your
-implementation needs may reduce this substantially, but at least it's fast to start.
+The server is a Rack application for the `thin` server.  Other Rack servers do
+not support event-driven multi chunk responses.  Thin also enables use of the
+epoll/kqueue interface which allows for tens of thousands of open connections.
+Expect 500-1000 requests per second on a single core of modern hardware.
+
+    # rackup-style example for config.ru
+    gem 'browserchannel'
+    require 'browser_channel'
+    require 'browser_test_channel'
+    map '/demo.channel' do
+      run BrowserChannel::Server.new, :handler => MyHandler
+    end
+    map '/demo.test' do
+      run BrowserTestChannel::Server.new
+    end
+
 Just like the browser side, there's a handler for your implementation.
 
     class MyHandler < BrowserChanner::Handler
@@ -55,13 +67,6 @@ Just like the browser side, there's a handler for your implementation.
       end
     end
 
-Be sure not to deploy the Closure Script build tool or debug tools like Rack::Reloader.
-These may severely affect performance or security if deployed to production.
-You can run the servers anywhere that runs a Rack application.
-
-    map '/demo.channel' do
-      run BrowserChannel::Server.new, :handler => MyHandler
-    end
-    map '/demo.test' do
-      run BrowserTestChannel::Server.new
-    end
+Be sure not to deploy the Closure Script build tool or debug tools like
+Rack::Reloader. These will severely affect performance and security.
+Check your middleware if you're not seeing the benchmarks you expect.

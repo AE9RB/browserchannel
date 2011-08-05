@@ -1,3 +1,4 @@
 .DS_Store
 closure-library/*
 script/compiler_*
+browserchannel-*.gem

@@ -34,6 +34,15 @@ class BrowserChannel
         # Minimum number of seconds to wait between garbage collections.
         :gc_frequency => 10,
       }.merge! options
+      errors = []
+      unless @options[:gc_max_age] > (@options[:keep_alive_interval] - @options[:keep_alive_first])
+        # in this condition, connections look expired on creation
+        errors << 'gc_max_age is too small'
+      end
+      if @options[:keep_alive_interval] < @options[:keep_alive_first]
+        errors << 'keep_alive_first must be same or smaller than keep_alive_interval'
+      end
+      raise "Options Fail: #{errors.join(', ')}." unless errors.empty?
     end
     def call env
       BrowserChannel.new @options, env
@@ -81,16 +90,17 @@ class BrowserChannel
     ID_CHARACTERS = (('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a).freeze
   
     def self.new options, id, array_id
-      if (Time.now - @@sessions_gc) > options[:gc_frequency]
+      if Time.now > @@sessions_gc
         to_destroy = []
-        @@sessions.each do |key, object|
-          next if object.channel or Time.now - object.timestamp < options[:gc_max_age]
+        @@sessions.each do |key, session|
+          next unless session.unbound_at
+          next if Time.now - session.unbound_at < options[:gc_max_age]
           to_destroy << key 
         end
-        to_destroy.each do |session|
-          @@sessions[session].destroy
+        to_destroy.each do |key|
+          @@sessions[key].destroy
         end
-        @@sessions_gc = Time.now
+        @@sessions_gc = Time.now + options[:gc_frequency]
       end
       if id
         session = @@sessions[id]
@@ -111,11 +121,11 @@ class BrowserChannel
       end
     end
   
-    attr_accessor :id, :last_array_id, :messages, :timestamp, :channel
+    attr_accessor :id, :array_id, :messages, :unbound_at
   
     def initialize id
       @id = id
-      @last_array_id = -1
+      @array_id = -1
       @messages = []
       unbind(@channel = nil) # trick into init
     end
@@ -123,14 +133,15 @@ class BrowserChannel
     def bind channel
       @channel = channel
       @channel_queue = []
+      @unbound_at = nil
     end
 
     # A channel will request to unbind itself after the connection completes.
     # It's possible another connection has taken over so abort if it looks so.
     def unbind channel
       return if @channel != channel
-      @timestamp = Time.now
-      bind nil
+      @channel = channel
+      @unbound_at = Time.now
     end
     
     def destroy
@@ -142,7 +153,7 @@ class BrowserChannel
     def call post_data
       session_bound = @channel ? 1 : 0
       pending_bytes = @messages.empty? ? 0 : @session.to_json.bytesize
-      response = [session_bound, @last_array_id, pending_bytes]
+      response = [session_bound, @array_id, pending_bytes]
       @handler.call post_data
       response
     end
@@ -150,7 +161,7 @@ class BrowserChannel
     # Adds a new message and schedules it to be sent.
     # Magic ['stop'] will tell the browser server is going down.
     def push array
-      message = [@last_array_id += 1, array]
+      message = [@array_id += 1, array]
       @messages << message
       return unless @channel
       if @channel_queue.empty?
@@ -176,20 +187,21 @@ class BrowserChannel
     @options = options
     request = Rack::Request.new env
     request_GET = request.GET
-    @session = Session.new @options, request_GET['SID'], request_GET['AID']
+    request_GET_SID = request_GET['SID']
+    @session = Session.new @options, request_GET_SID, request_GET['AID']
     unless @session
       request.env['async.callback'].call [400, {}, self]
       succeed
       return
     end
-    if @session.last_array_id == -1
+    if @session.array_id == -1
       @session << ['c', @session.id, @options[:host_prefix], LATEST_CHANNEL_VERSION]
     end
     @chunked = request_GET['CI'] == '0'
     @html_data_type = request_GET['TYPE'] == 'html'
     headers = {'Cache-Control' => 'no-cache'}
     headers['Content-Type'] = @html_data_type ? 'text/html' : 'application/javascript'
-    request.env['async.callback'].call( [200, headers, self] )
+    env['async.callback'].call [200, headers, self]
     if @html_data_type
       @body_callback.call "<html><body>\n"
       if domain = request_GET['DOMAIN']
@@ -201,20 +213,18 @@ class BrowserChannel
       succeed
       return
     end
-    if request.post?
-      request_POST = request.POST
-      count = request_POST['count'].to_i
-      return send_data @session.call request_POST if count > 0
+    if request.post? and request_GET_SID
+      send_data @session.call request.POST
+      return
     elsif request.get?
-      @session.bind self 
-      @last_message = Time.now - ( @options[:keep_alive_interval] -
-                      [@options[:keep_alive_interval],@options[:keep_alive_first]].min )
-      keep_alive if @chunked
       # Thin calls errback when connection closes, even after success
-      errback do
-        @timer.cancel if @chunked
-        @session.unbind self
+      if @chunked
+        @last_message = Time.now - ( @options[:keep_alive_interval] - @options[:keep_alive_first] )
+        keep_alive 
+        errback { @timer.cancel }
       end
+      @session.bind self 
+      errback { @session.unbind self }
     end
     send_data @session.messages unless @session.messages.empty?
   end

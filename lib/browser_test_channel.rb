@@ -46,10 +46,9 @@ class BrowserTestChannel
 
   def initialize request
     @html_data_type = request.GET['TYPE'] == 'html'
-    
     headers = {'Cache-Control' => 'no-cache'}
     headers['Content-Type'] = @html_data_type ? 'text/html' : 'application/javascript'
-    request.env['async.callback'].call( [200, headers, self] )
+    request.env['async.callback'].call [200, headers, self]
     if @html_data_type
       @body_callback.call "<html><body>\n"
       if domain = request.GET['DOMAIN']

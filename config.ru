@@ -15,7 +15,6 @@ end
 Closure.add_source 'script', '/'
 Closure.add_source 'closure-library', '/closure-library'
 # Closure.config.compiler_jar = 'compiler.jar'
-# Closure.config.soy_js_jar = 'SoyToJsSrcCompiler.jar'
 # Closure.config.java = 'java'
 
 stack = proc {
@@ -37,7 +36,10 @@ stack = proc {
 if Rack::Builder === self
   stack.call
 else
-  EventMachine.run {
-    Rack::Handler::Thin.run Rack::Builder.new(&stack), :Port => 3000
-  }
+  EventMachine.run do
+    Rack::Handler::Thin.run(Rack::Builder.new(&stack), :Port => 3000) do |server|
+     server.maximum_connections = 20_000
+     server.maximum_persistent_connections = 15_000
+    end
+  end
 end

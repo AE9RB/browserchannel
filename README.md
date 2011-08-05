@@ -18,3 +18,50 @@ Check the thin log for the proper port.
 It's most likely:
 
     http://localhost:3000/
+
+##Getting to Production
+
+The browser is started by attaching a handler to a channel.  The channel
+then connects with a server.  The handler is your implementation.
+
+    var handler = new goog.net.BrowserChannel.Handler();
+    handler.channelOpened = function(channel) {
+      // fire off a message immediately after connect
+      channel.sendMap({message:'data'});
+    };
+    handler.channelHandleArray = function(x, data) {
+      // messages from the server arrive here
+      alert(data[0].message);
+    };
+
+    channel = new goog.net.BrowserChannel();
+    channel.setHandler(handler);
+    channel.connect('demo.test', 'demo.channel');
+
+The server is a Rack application that requires the `thin` server.  This enables
+use of the epoll/kqueue interface.  Tens of thousands of connections can be maintained
+with as much as 1000 requests per second on good hardware.  Of course, your
+implementation needs may reduce this substantially, but at least it's fast to start.
+Just like the browser side, there's a handler for your implementation.
+
+    class MyHandler < BrowserChanner::Handler
+      # this is an echo server
+      def call post_data
+        requests = decode_post_data post_data
+        requests.each { |r| @session << [r] }
+      end
+      # called when channel session is final
+      def terminate
+      end
+    end
+
+Be sure not to deploy the Closure Script build tool or debug tools like Rack::Reloader.
+These may severely affect performance or security if deployed to production.
+You can run the servers anywhere that runs a Rack application.
+
+    map '/demo.channel' do
+      run BrowserChannel::Server.new, :handler => MyHandler
+    end
+    map '/demo.test' do
+      run BrowserTestChannel::Server.new
+    end

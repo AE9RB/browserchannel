@@ -12,7 +12,7 @@ myapp.demo = function(message) {
     channel.sendMap({message:message});
   };
   handler.channelHandleArray = function(x, data) {
-    alert(data[0]['message']);
+    alert(data[0].message);
   };
 
   channel = new goog.net.BrowserChannel();

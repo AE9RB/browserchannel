@@ -22,13 +22,14 @@ class BrowserChannel
       @options = {
         # Subclass this echo Handler or create your own.
         :handler => Handler,
+        # Alternate host prefix for clients with connection pool limits.
+        :host_prefix => nil,
         # Ensure a chunk is sent within these first few seconds because
         # waiting an entire interval looks too much like a broken server.
         :keep_alive_first => 10,
-        # Send a noop chunk every so many seconds to prevent timeouts.
-        :keep_alive_interval => 30,
-        # Alternate host prefix for clients with connection pool limits.
-        :host_prefix => nil,
+        # Send a noop chunk every so many seconds to prevent network timeouts.
+        # Thin will timeout at 30 seconds by default and this value must be less.
+        :keep_alive_interval => 25,
         # Number of seconds a session must be unbound before freed.
         :gc_max_age => 120,
         # Minimum number of seconds to wait between garbage collections.

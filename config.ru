@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 Dir.chdir File.dirname(__FILE__)
+require 'rubygems'
 require 'closure'
 %w{lib/browser_channel lib/browser_test_channel}.each do |file|
   require File.expand_path file
@@ -38,8 +39,9 @@ if Rack::Builder === self
 else
   EventMachine.run do
     Rack::Handler::Thin.run(Rack::Builder.new(&stack), :Port => 3000) do |server|
-     server.maximum_connections = 20_000
-     server.maximum_persistent_connections = 15_000
+      server.timeout = 35 # keep this timeout above keep_alive_interval
+      server.maximum_connections = 20_000
+      server.maximum_persistent_connections = 15_000
     end
   end
 end

@@ -7,14 +7,16 @@ An event-driven server for Google Closure Library's goog.BrowserChannel class.
 
 ### Step 1
 Ensure you have a modern Ruby and RubyGems.
-Version 1.8.6 and higher should work.  Run:
+At least 1.8.6; JRuby, and Rubinius work too.
+Ruby 1.9.2 is fastest and won't need the json gem.
+The `thin` command looks for config.ru.
 
     gem install thin closure json
     thin start
 
 ### Step 2
 Open your web browser and continue from there.
-Check the thin log for the proper port.
+Check the thin log on stdout for the proper port.
 It's most likely:
 
     http://localhost:3000/

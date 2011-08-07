@@ -2,3 +2,4 @@
 closure-library/*
 script/compiler_*
 browserchannel-*.gem
+*.rbc
